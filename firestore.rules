@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function existingChatParticipant(chatId) {
+      return signedIn()
+        && request.auth.uid in
+          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    match /users/{userId} {
+      allow get, list: if signedIn();
+      allow create: if ownsUser(userId)
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if ownsUser(userId)
+        && (!('uid' in resource.data)
+          || request.resource.data.uid == resource.data.uid);
+      allow delete: if ownsUser(userId);
+
+      match /contacts/{contactId} {
+        allow read, create, update, delete: if ownsUser(userId);
+      }
+    }
+
+    match /chats/{chatId} {
+      allow get, list: if signedIn()
+        && request.auth.uid in resource.data.participants;
+      allow create: if signedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.participants == resource.data.participants;
+      allow delete: if signedIn()
+        && request.auth.uid in resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read: if existingChatParticipant(chatId);
+        allow create: if existingChatParticipant(chatId)
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if existingChatParticipant(chatId);
+      }
+    }
+  }
+}
