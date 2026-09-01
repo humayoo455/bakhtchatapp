@@ -1,11 +1,16 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform;
 
 /// Firebase configuration supplied by each developer at build time.
 class DefaultFirebaseOptions {
   static const String _apiKey = String.fromEnvironment('FIREBASE_API_KEY');
-  static const String _appId = String.fromEnvironment('FIREBASE_APP_ID');
+  static const String _androidAppId = String.fromEnvironment(
+    'FIREBASE_ANDROID_APP_ID',
+  );
+  static const String _iosAppId = String.fromEnvironment(
+    'FIREBASE_IOS_APP_ID',
+  );
   static const String _messagingSenderId = String.fromEnvironment(
     'FIREBASE_MESSAGING_SENDER_ID',
   );
@@ -20,7 +25,6 @@ class DefaultFirebaseOptions {
 
   static FirebaseOptions get currentPlatform {
     if (_apiKey.isEmpty ||
-        _appId.isEmpty ||
         _messagingSenderId.isEmpty ||
         _projectId.isEmpty ||
         _storageBucket.isEmpty) {
@@ -31,13 +35,25 @@ class DefaultFirebaseOptions {
       );
     }
 
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
-      return _baseOptions;
-    }
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      if (_androidAppId.isEmpty) {
+        throw StateError('FIREBASE_ANDROID_APP_ID is required on Android.');
+      }
       return FirebaseOptions(
         apiKey: _apiKey,
-        appId: _appId,
+        appId: _androidAppId,
+        messagingSenderId: _messagingSenderId,
+        projectId: _projectId,
+        storageBucket: _storageBucket,
+      );
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      if (_iosAppId.isEmpty) {
+        throw StateError('FIREBASE_IOS_APP_ID is required on iOS.');
+      }
+      return FirebaseOptions(
+        apiKey: _apiKey,
+        appId: _iosAppId,
         messagingSenderId: _messagingSenderId,
         projectId: _projectId,
         storageBucket: _storageBucket,
@@ -45,15 +61,7 @@ class DefaultFirebaseOptions {
       );
     }
     throw UnsupportedError(
-      'Bakht is currently configured for Android, iOS, and web.',
+      'Bakht is currently configured for Android and iOS.',
     );
   }
-
-  static const FirebaseOptions _baseOptions = FirebaseOptions(
-    apiKey: _apiKey,
-    appId: _appId,
-    messagingSenderId: _messagingSenderId,
-    projectId: _projectId,
-    storageBucket: _storageBucket,
-  );
 }
